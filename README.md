@@ -16,7 +16,7 @@ Hardware:
 
 ## Usage (to be embellished)
 
-**Optional:** Build dedicated Kubernetes network and configure routing, policies, and static DHCP leases.
+**Optional:** Build dedicated cluster network and configure routing, policies, and static DHCP leases.
 
 Populate `ansible/inventory` with Pi IPs/FQDNs and NFS/TFTP server details.
 
