@@ -1,0 +1,59 @@
+---
+- name: provision pi board for PXE booting
+  hosts: nodes
+  become: yes
+  gather_facts: no
+
+  tasks:
+    - name: update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: perform full-upgrade
+      apt:
+        upgrade: full
+
+    - name: install rpi-eeprom
+      apt:
+        name: 'rpi-eeprom'
+        state: latest
+
+    - name: duplicate latest firmware image
+      shell: 'cp $(ls -1 pieeprom*bin | sed "s/-\([1-9]\)\./-0\1\./g" | sort -r | head -n1) pieeprom-modified.bin'
+      args:
+        chdir: '/lib/firmware/raspberrypi/bootloader/beta'
+      register: duplication_result
+      changed_when: '"are the same file" not in duplication_result.stderr'
+      failed_when: false
+
+    - name: extract configuration from firmware image
+      shell: 'rpi-eeprom-config pieeprom-modified.bin > bootconf.txt'
+      args:
+        chdir: '/lib/firmware/raspberrypi/bootloader/beta'
+      changed_when: false
+
+    - name: modify boot order (1. SD card 2. network)
+      lineinfile:
+        path: '/lib/firmware/raspberrypi/bootloader/beta/bootconf.txt'
+        regexp: '^BOOT_ORDER='
+        line: 'BOOT_ORDER=0x21'
+      register: bootorder_result
+      changed_when: false
+
+    - name: create final firmware image with modified bootconf.txt
+      shell: 'rpi-eeprom-config --out netboot-pieeprom.bin --config bootconf.txt pieeprom-modified.bin'
+      args:
+        chdir: '/lib/firmware/raspberrypi/bootloader/beta'
+      changed_when: false
+
+    - name: install the final firmware image
+      shell: 'rpi-eeprom-update -d -f ./netboot-pieeprom.bin'
+      args:
+        chdir: '/lib/firmware/raspberrypi/bootloader/beta'
+      changed_when: false
+
+    - name: disable automatic updating of rpi-eeprom
+      systemd:
+        name: 'rpi-eeprom-update'
+        masked: yes

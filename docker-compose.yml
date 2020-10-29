@@ -1,0 +1,24 @@
+version: '3.2'
+
+services:
+  tftp:
+    restart: unless-stopped
+    build: .
+    container_name: mini-k8s-tftp
+    ports:
+      - '69:69/udp'
+    volumes:
+      - ./netboot/tftp:/var/tftpboot
+
+  nfs:
+    restart: unless-stopped
+    image: itsthenetwork/nfs-server-alpine:latest
+    privileged: true
+    container_name: mini-k8s-nfs
+    ports:
+      - 2049:2049
+    environment: 
+      SHARED_DIRECTORY: '/netboot'
+      PERMITTED: '192.168.25.*'
+    volumes:
+      - ./netboot:/netboot

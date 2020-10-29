@@ -1,0 +1,30 @@
+---
+servers:
+  hosts:
+    nfs_server:
+      ansible_host: '192.168.1.10'
+
+nodes:
+  hosts:
+    node0:
+      ansible_host: '192.168.25.10'
+      serial: '89f45693'
+      kubernetes_role: 'master'
+    node1:
+      ansible_host: '192.168.25.11'
+      serial: 'aec1a656'
+      kubernetes_role: 'node'
+    node2:
+      ansible_host: '192.168.25.12'
+      serial: '62ceab5f'
+      kubernetes_role: 'node'
+    node3:
+      ansible_host: '192.168.25.13'
+      serial: '5a7be10d'
+      kubernetes_role: 'node'
+  vars:
+    ansible_user: 'pi'
+    ansible_ssh_pass: 'raspberry'
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+    kubernetes_master_ip: '192.168.25.10'
+    kubernetes_apiserver_advertise_address: '192.168.25.10'

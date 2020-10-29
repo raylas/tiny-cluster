@@ -1,0 +1,17 @@
+---
+- name: orchestrate Kubernetes installation on cluster
+  hosts: nodes
+  gather_facts: yes
+  become: yes
+  vars_files:
+    - 'vars/main.yml'
+
+  pre_tasks:
+    - import_tasks: tasks/cgroup-features.yml
+    - import_tasks: tasks/disable-swap.yml
+
+  roles:
+    - geerlingguy.kubernetes
+
+  tasks:
+    - import_tasks: tasks/k8s-config.yml

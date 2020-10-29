@@ -1,0 +1,94 @@
+---
+- name: deploy raspbian image(s) to cluster
+  hosts: servers
+  gather_facts: no
+  become: yes
+  vars_files:
+    - 'vars/main.yml'
+
+  tasks:
+    - name: power down node(s)
+      pause:
+        prompt: 'Power down node(s) to be re-imaged. Press ENTER to continue...'
+    
+    - name: wipe existing node filesystem(s)
+      file:
+        state: absent
+        path: '{{ nfs_base_dir }}/{{ hostvars[item]["inventory_hostname"] }}/'
+      loop: "{{ groups['nodes'] }}"
+    
+    - name: wipe existing node boot filesystem(s)
+      file:
+        state: absent
+        path: '{{ tftp_base_dir }}/{{ hostvars[item]["serial"] }}/'
+      loop: "{{ groups['nodes'] }}"
+   
+    - name: recreate node filesystem folder(s)
+      file:
+        state: directory
+        path: '{{ nfs_base_dir }}/{{ hostvars[item]["inventory_hostname"] }}'
+      loop: "{{ groups['nodes'] }}"
+
+    - name: recreate node boot filesystem folder(s)
+      file:
+        state: directory
+        path: '{{ tftp_base_dir }}/{{ hostvars[item]["serial"] }}'
+      loop: "{{ groups['nodes'] }}"
+
+    - name: copy latest scripts, ansible playbooks, base image(s), and packer JSON to the server
+      block:
+        - name: copy latest base image(s) to the server
+          copy:
+            src: '../images/'
+            dest: '{{ server_build_dir }}/images/'
+            owner: raymond
+            group: raymond
+            mode: '0644'
+            force: yes
+
+        - name: copy latest scripts to the server
+          copy:
+            src: '../scripts/'
+            dest: '{{ server_build_dir }}/scripts/'
+            owner: raymond
+            group: raymond
+            mode: '0644'
+            force: yes
+
+        - name: copy latest ansible playbooks to the server
+          copy:
+            src: '../ansible/'
+            dest: '/home/raymond/mini-k8s/build/ansible/'
+            owner: raymond
+            group: raymond
+            mode: '0644'
+            force: yes
+
+        - name: copy latest packer JSON template(s) to the server
+          copy:
+            src: '../{{ hostvars[item]["inventory_hostname"] }}.json'
+            dest: '{{ server_build_dir }}/'
+            owner: raymond
+            group: raymond
+            mode: '0644'
+            force: yes
+          loop: "{{ groups['nodes'] }}"
+
+    - name: run packer to provision image(s)
+      command: 'packer build {{ hostvars[item]["inventory_hostname"] }}.json'
+      args:
+        chdir: '{{ server_build_dir }}'
+      register: packer_output
+      loop: "{{ groups['nodes'] }}"
+
+    # - name: packer output
+    #   debug:
+    #     var: packer_output.stdout
+
+    - name: mount and copy filesystem(s) to NFS and TFTP shares
+      include_tasks: tasks/populate-shares.yml
+      loop: "{{ groups['nodes'] }}"
+    
+    - name: power up node(s)
+      pause:
+        prompt: 'Power up node(s) to complete deployment. Press ENTER to continue...'

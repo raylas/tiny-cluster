@@ -1,0 +1,36 @@
+---
+- name: mount image filesystems in prepartion for rsync
+  shell: |
+    LOOP=$(losetup --show -fP {{ hostvars[item]["inventory_hostname"] }}.img)
+    mkdir ./image_boot
+    mkdir ./image_root
+    mount ${LOOP}p1 ./image_boot/
+    mount ${LOOP}p2 ./image_root/
+  args:
+    chdir: '{{ server_build_dir }}'
+
+- name: copy boot volume
+  synchronize:
+    src: '{{ server_build_dir }}/image_boot/'
+    dest: '{{ tftp_base_dir }}/{{ hostvars[item]["serial"] }}/'
+  delegate_to: '{{ inventory_hostname }}'
+
+- name: copy root volume
+  synchronize:
+    src: '{{ server_build_dir }}/image_root/'
+    dest: '{{ nfs_base_dir }}/{{ hostvars[item]["inventory_hostname"] }}/'
+  delegate_to: '{{ inventory_hostname }}'
+
+- name: unmount existing filesystem mounts (if already mounted)
+  shell: |
+    umount ./image_boot
+    umount ./image_root
+  args:
+    chdir: '{{ server_build_dir }}'
+
+## Not needed at this time as it makes troubleshooting build process difficult and time consuming
+# - name: remove temporary image(s)
+#   command: 'rm {{ hostvars[item]["inventory_hostname"] }}.img'
+#   args:
+#     chdir: '/home/raymond/mini-k8s/build'
+#   loop: "{{ groups['nodes'] }}"

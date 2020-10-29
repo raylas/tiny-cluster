@@ -1,0 +1,86 @@
+---
+- name: provision raspbian image(s) for cluster
+  hosts: all
+  gather_facts: yes
+  become: yes
+  vars_files:
+    - 'vars/main.yml'
+
+  roles:
+    - geerlingguy.docker_arm
+
+  tasks:
+    - name: set authorized SSH key(s)
+      authorized_key:
+        user: pi
+        state: present
+        key: '{{ item }}'
+      loop: '{{ ssh_keys }} '
+    
+    - name: disable SSH password authentication and root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '{{ item.regexp }}'
+        line: '{{ item.line }}'
+      loop:
+        - regexp: '^PasswordAuthentication '
+          line: PasswordAuthentication no
+        - regexp: '^PermitRootLogin '
+          line: PermitRootLogin no
+    
+    - name: enable SSH daemon
+      service:
+        name: ssh
+        enabled: yes
+        state: restarted
+    
+    - name: set timezone to America/Los_Angeles
+      timezone:
+        name: '{{ timezone }}'
+    
+    - name: install unattended-upgrades for automatic apt updates
+      apt:
+        name: 'unattended-upgrades'
+        state: present
+    
+    - name: configure apt automatic updates
+      lineinfile:
+        path: /etc/apt/apt.conf.d/20auto-upgrades
+        line: '{{ item }}'
+      with_items:
+        - 'APT::Periodic::Download-Upgradeable-Packages "1";'
+        - 'APT::Periodic::AutocleanInterval "7";'
+    
+    - name: disable automatic updating of rpi-eeprom
+      systemd:
+        name: 'rpi-eeprom-update'
+        masked: yes
+    
+    - name: configure /boot/cmdline.txt
+      lineinfile:
+        path: '/boot/cmdline.txt'
+        regexp: '.*'
+        line: 'dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=/dev/nfs nfsroot={{ nfs_server }}:/{{ node_hostname }}/,vers=4.1,proto=tcp,port=2049 rw ip=dhcp elevator=deadline rootwait plymouth.ignore-serial-consoles'
+
+    - name: populate /etc/hosts/ with node hostname
+      lineinfile:
+        path: '/etc/hosts'
+        regexp: '^127\.0\.1\.1'
+        line: '127.0.1.1 {{ node_hostname }}'
+
+    - name: populate /etc/hostname with node hostname
+      lineinfile:
+        path: '/etc/hostname'
+        regexp: '.*'
+        line: '{{ node_hostname }}' 
+
+    - name: clean up /etc/fstab
+      shell: |
+        sed -i "/mmcblk/d" /etc/fstab
+        sed -i "/PARTUUID/d" /etc/fstab
+    
+    - name: populate /etc/fstab
+      lineinfile:
+        path: '/etc/fstab'
+        line: '{{ nfs_server }}:tftp/{{ node_serial }} /boot nfs4 defaults,nofail,noatime 0 2'
+        insertafter: EOF

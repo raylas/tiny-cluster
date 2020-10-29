@@ -1,0 +1,16 @@
+---
+- name: Ensure ~/.kube directory exists.
+  file:
+    path: ~/.kube
+    state: directory
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Copy K8s config file from master to local.
+  fetch:
+    src: '~/.kube/config'
+    dest: '~/.kube/{{ k8s_config_filename }}'
+    flat: true
+  delegate_to: '{{ groups.nodes[0] }}'
+  run_once: true
