@@ -26,7 +26,9 @@ Using a raspbian-lite-loaded MicroSD card, boot up each Pi (can do one at a time
 
 Power down or disconnect the nodes from the network and remove the MicroSD card(s).
 
-On the host destined to be the TFTP and NFS server, run `docker-compose.yml` to start the TFTP and NFS containers.
+On the host destined to be the TFTP, NFS, and build server, run `docker-compose.yml` to start the TFTP and NFS containers.
+
+Additionally, on the same host, install [packer-builder-arm](https://github.com/mkaczanowski/packer-builder-arm).
 
 Edit the DHCP options for the network that will contain the Pi nodes and specify the TFTP server's IP address.
 
